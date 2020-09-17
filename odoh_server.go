@@ -41,8 +41,8 @@ const (
 	aeadID = hpke.AEAD_AESGCM128
 
 	// HTTP constants. Fill in your proxy and target here.
-	proxyURI          = "https://dnstarget.example.net"
-	targetURI         = "https://dnsproxy.example.net"
+	proxyURI          = "https://localhost:9003"
+	targetURI         = "https://localhost:9004"
 	queryEndpoint     = "/dns-query"
 	proxyEndpoint     = "/proxy"
 	healthEndpoint    = "/health"
@@ -81,7 +81,7 @@ func (s odohServer) healthCheckHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "8081"
 		log.Printf("Defaulting to port %s", port)
 	}
 
@@ -137,7 +137,6 @@ func main() {
 		verbose:            true,
 		resolver:           resolversInUse,
 		odohKeyPair:        privateKey,
-		telemetryClient:    getTelemetryInstance(),
 		serverInstanceName: serverName,
 		experimentId:       experimentID,
 	}
