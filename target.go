@@ -38,7 +38,7 @@ type targetServer struct {
 	verbose            bool
 	resolver           []*targetResolver
 	odohKeyPair        odoh.ObliviousDNSKeyPair
-	telemetryClient    *telemetry
+	// telemetryClient    *telemetry
 	serverInstanceName string
 	experimentId       string
 }
@@ -174,7 +174,7 @@ func (s *targetServer) plainQueryHandler(w http.ResponseWriter, r *http.Request)
 	exp.Resolver = s.resolver[chosenResolver].getResolverServerName()
 	exp.Status = true
 
-	go s.telemetryClient.streamTelemetryToGCPLogging([]string{exp.serialize()})
+	// go s.telemetryClient.streamTelemetryToGCPLogging([]string{exp.serialize()})
 
 	w.Header().Set("Content-Type", "application/dns-message")
 	w.Write(packedResponse)
@@ -243,9 +243,9 @@ func (s *targetServer) obliviousQueryHandler(w http.ResponseWriter, r *http.Requ
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 		return
 	}
-	exp.RequestID = obliviousQuery.ResponseKey
-	chosenResolver := int(obliviousQuery.ResponseKey[len(obliviousQuery.ResponseKey)-1]) % len(nameServers)
-
+	exp.RequestID = obliviousQuery.ResponseSeed[:]
+	chosenResolver := int(obliviousQuery.ResponseSeed[len(obliviousQuery.ResponseSeed)-1]) % len(nameServers)
+	
 	query, err := decodeDNSQuestion(obliviousQuery.Message())
 	if err != nil {
 		log.Println("Failed decoding DNS query:", err)
@@ -267,7 +267,11 @@ func (s *targetServer) obliviousQueryHandler(w http.ResponseWriter, r *http.Requ
 	queryResolutionCompleteTime := time.Now().UnixNano()
 	timestamp.TargetQueryResolutionTime = queryResolutionCompleteTime
 
-	obliviousResponse, err := s.createObliviousResponseForQuery(obliviousQuery, packedResponse)
+	responsePadding := []byte{}
+	responseBody := odoh.CreateObliviousDNSResponseBody(packedResponse, responsePadding)
+	responseBodyBytes := responseBody.Marshal()
+
+	obliviousResponse, err := s.createObliviousResponseForQuery(obliviousQuery, responseBodyBytes)
 	if err != nil {
 		log.Println("Failed creating DNS oblivious DNS response:", err)
 		timestamp.TargetAnswerEncryptionTime = 0
@@ -275,7 +279,7 @@ func (s *targetServer) obliviousQueryHandler(w http.ResponseWriter, r *http.Requ
 		exp.Timestamp = timestamp
 		exp.Status = false
 		exp.Resolver = ""
-		go s.telemetryClient.streamTelemetryToGCPLogging([]string{exp.serialize()})
+		// go s.telemetryClient.streamTelemetryToGCPLogging([]string{exp.serialize()})
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
@@ -296,7 +300,7 @@ func (s *targetServer) obliviousQueryHandler(w http.ResponseWriter, r *http.Requ
 	exp.Status = true
 
 	//go s.telemetryClient.streamDataToElastic([]string{exp.serialize()})
-	go s.telemetryClient.streamTelemetryToGCPLogging([]string{exp.serialize()})
+	// go s.telemetryClient.streamTelemetryToGCPLogging([]string{exp.serialize()})
 
 	w.Header().Set("Content-Type", "application/oblivious-dns-message")
 	w.Write(packedResponseMessage)
